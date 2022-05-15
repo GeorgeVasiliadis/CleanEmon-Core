@@ -5,11 +5,12 @@ from CleanEmonCore.models import EnergyData
 
 CONFIG_FILE = "db.cfg"
 TEST_DB_NAME = "test_db"
+DUMMY_DATE = "2000-01-01"
 
 
 @fixture
 def energy_data():
-    return EnergyData("2022-05-01",
+    return EnergyData(DUMMY_DATE,
                       [
                           {"timestamp": 1,
                            "power": 100,
@@ -25,6 +26,7 @@ def energy_data():
                            }
                       ])
 
+
 @fixture
 def adapter():
     return CouchDBAdapter(CONFIG_FILE)
@@ -33,6 +35,12 @@ def adapter():
 @fixture
 def document(adapter):
     yield adapter.create_document(TEST_DB_NAME)
+    adapter.delete_document(TEST_DB_NAME)
+
+
+@fixture
+def populated_document(adapter, energy_data):
+    yield adapter.create_document(TEST_DB_NAME, initial_data=energy_data)
     adapter.delete_document(TEST_DB_NAME)
 
 
@@ -78,3 +86,18 @@ class TestEnergyData:
         data = adapter.fetch_energy_data(document=document)
         assert data
         assert len(data.energy_data) > 0
+
+
+class TestByDate:
+    def test_get_document_id_for_date(self, adapter, populated_document):
+        assert populated_document == adapter.get_document_id_for_date(DUMMY_DATE)
+
+    def test_fetch_energy_data_by_date(self, adapter, populated_document):
+        data = adapter.fetch_energy_data_by_date(DUMMY_DATE)
+        assert data
+        assert DUMMY_DATE == data.date
+
+    def test_update_energy_data_by_date(self, adapter, energy_data, populated_document):
+        assert adapter.update_energy_data_by_date(DUMMY_DATE, energy_data)
+        data = adapter.fetch_energy_data_by_date(DUMMY_DATE)
+        assert data == energy_data

@@ -1,9 +1,9 @@
 from pytest import fixture
 
+from CleanEmonCore import CONFIG_FILE
 from CleanEmonCore.CouchDBAdapter import CouchDBAdapter
 from CleanEmonCore.models import EnergyData
 
-CONFIG_FILE = "db.cfg"
 TEST_DB_NAME = "test_db"
 DUMMY_DATE = "2000-01-01"
 

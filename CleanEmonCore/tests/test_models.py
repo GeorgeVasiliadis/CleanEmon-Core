@@ -1,6 +1,6 @@
 from pytest import fixture
 
-from CleanEmonCore.models import *
+from CleanEmonCore.models import EnergyData
 
 
 @fixture
@@ -31,4 +31,5 @@ class TestEnergyData:
     def test_as_json(self, energy_data):
         data = energy_data
         assert data.energy_data
-        assert data.as_json()
+        assert type(data.as_json(string=True)) is str
+        assert type(data.as_json(string=False)) is dict

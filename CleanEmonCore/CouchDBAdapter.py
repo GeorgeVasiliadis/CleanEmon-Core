@@ -3,13 +3,14 @@
 import os
 import configparser
 import json
-from typing import Any
 
 import requests
 
+from .models import EnergyData
+
 
 class CouchDBAdapter:
-    """ChouchDB handler class used to exchange data using REST API."""
+    """ChouchDB Adapter class used to exchange data using REST API."""
 
     def __init__(self, config_file: str):
 
@@ -23,19 +24,6 @@ class CouchDBAdapter:
         self.username = cfg["DB"]["username"]
         self.password = cfg["DB"]["password"]
         self.base_url = f"{self.endpoint}"
-
-    def _test(self) -> bool:
-        """Checks if connection with given credentials can be established.
-        Returns False if request status returns something other than OK.
-        """
-
-        try:
-            res = requests.get(self.base_url, auth=(self.username, self.password))
-        except Exception as e:
-            print(e)
-            return False
-
-        return res.ok
 
     def _fetch_document(self, *, document: str = None) -> dict:
         """Fetches the default document.
@@ -70,10 +58,8 @@ class CouchDBAdapter:
         to overwriting the stored data. Use with caution!
         Returns True if the document was updated successfully.
 
-        data -- The data that will be used to update the specified document.
-                data should be json-serializable. If omitted, an empty json
-                object will be passed instead which will be equivalent to
-                dropping the whole document.
+        data -- The data that will be used to update the specified document. If omitted, an empty dictionary
+        will be passed instead, which will be equivalent to dropping the previous document.
         document -- The document to be updated. It is usually omitted as the
                     default document is being implied, but an arbitrary document
                     can be specified as well.
@@ -87,26 +73,28 @@ class CouchDBAdapter:
 
         assert document, "No document was supplied!"
 
+        contents = self._fetch_document(document=document)
+
         if not data:
-            data = {}
+            data = EnergyData()
+
+        contents.update(data)
 
         res = requests.put(f"{self.base_url}/{self.db}/{document}",
-                           data=json.dumps(data),
+                           data=json.dumps(contents),
                            auth=(self.username, self.password))
 
         return res.ok
 
-    def create_document(self, name: str = None, *, initial_data: dict = None) -> str:
-        """Creates a new document named `name`, initialized with `initial_data` json
-        object.
+    def create_document(self, name: str = None, *, initial_data: EnergyData = None) -> str:
+        """Creates a new document named `name`, initialized with `initial_data`.
         Returns the name of the document if creation was successful, and an empty
         string otherwise.
 
         name -- The name of the document to be created. If omitted, a new UUID
         will be auto-generated and assigned.
-        initial_data -- The initial data that will be contained in the created document.
-        initial_data should be json-serializable. If omitted, an empty json
-        object will be passed instead.
+        initial_data -- The initial data that will be contained in the created document. initial_data should be
+        of-type EnergyData. If omitted, an empty EnergyData object will be used.
         """
 
         # If no name is provided, generate a new UUID on the fly
@@ -117,31 +105,62 @@ class CouchDBAdapter:
         # Empty bodied requests cannot create new CouchDB Documents.
         # Make sure no empty data are sent.
         if not initial_data:
-            initial_data = {}
+            initial_data = EnergyData()
 
         res = requests.put(f"{self.base_url}/{self.db}/{name}",
                            auth=(self.username, self.password),
-                           data=json.dumps(initial_data))
+                           data=initial_data.as_json(string=True))
 
         if not res.ok:
             name = ""
 
         return name
 
-    def append_energy_data(self, energy_data: Any, *, document=None) -> bool:
-        """Accepts a measurement object and appends it to the energy_data list
-        of specified document.
+    def delete_document(self, name: str) -> bool:
+        data = self._fetch_document(document=name)
+        if "_rev" in data:
+            rev = data["_rev"]
+            res = requests.delete(f"{self.base_url}/{self.db}/{name}",
+                                  auth=(self.username, self.password),
+                                  params={"rev": rev})
+            return res.ok
+
+        return False
+
+    def fetch_energy_data(self, *, document: str = None) -> EnergyData:
+        """Fetches the default document.
+        Returns its content as a valid EnergyData object. If operation is unsuccessful, an empty EnergyData object will
+         be returned.
+
+        document -- The document to be fetched. It is usually omitted as the
+                    default document is being implied, but an arbitrary document
+                    can be specified as well.
+
+        Throws:
+        AssertionError -- If no document can be found.
         """
 
-        old_data = self._fetch_document(document=document)
+        energy_data = EnergyData()
+        data = self._fetch_document(document=document)
 
-        if "energy_data" not in old_data:
-            old_data["energy_data"] = []
+        if data:
+            if "date" in data:
+                energy_data.date = data["date"]
+            if "energy_data" in data:
+                energy_data.energy_data = data["energy_data"]
 
-        old_data["energy_data"].append(energy_data)
-        new_data = old_data
+        return energy_data
 
-        return self._update_document(new_data, document=document)
+    def append_energy_data(self, energy_data: EnergyData, *, document=None) -> bool:
+        """Accepts an EnergyData object and appends its contents to the specified document.
+        """
+
+        new_data = energy_data.energy_data
+
+        copy = self.fetch_energy_data(document=document)
+        copy.energy_data.extend(new_data)
+
+        return self._update_document(copy.as_json(string=False), document=document)
 
     def get_document_id_for_date(self, date: str) -> str:
         """Returns the id of the document that matches the given date. If there
@@ -282,3 +301,96 @@ class TempDB:
                 json.dump(data, fout)
 
         return data
+
+   # def _test(self) -> bool:
+    #     """Checks if connection with given credentials can be established.
+    #     Returns False if request status returns something other than OK.
+    #     """
+    #
+    #     try:
+    #         res = requests.get(self.base_url, auth=(self.username, self.password))
+    #     except Exception as e:
+    #         print(e)
+    #         return False
+    #
+    #     return res.ok
+# ! DEPRECATED !
+# def _update_document(self, data: dict, *, document=None) -> bool:
+#     """Updates the default document with the given data. This is equivalent
+#     to overwriting the stored data. Use with caution!
+#     Returns True if the document was updated successfully.
+#
+#     data -- The data that will be used to update the specified document.
+#             data should be json-serializable. If omitted, an empty json
+#             object will be passed instead which will be equivalent to
+#             dropping the whole document.
+#     document -- The document to be updated. It is usually omitted as the
+#                 default document is being implied, but an arbitrary document
+#                 can be specified as well.
+#
+#     Throws:
+#     AssertionError -- If no document can be found.
+#     """
+#
+#     if not document:
+#         document = self.document
+#
+#     assert document, "No document was supplied!"
+#
+#     if not data:
+#         data = {}
+#
+#     res = requests.put(f"{self.base_url}/{self.db}/{document}",
+#                        data=json.dumps(data),
+#                        auth=(self.username, self.password))
+#
+#     return res.ok
+
+# def create_document(self, name: str = None, *, initial_data: dict = None) -> str:
+#     """Creates a new document named `name`, initialized with `initial_data` json
+#     object.
+#     Returns the name of the document if creation was successful, and an empty
+#     string otherwise.
+#
+#     name -- The name of the document to be created. If omitted, a new UUID
+#     will be auto-generated and assigned.
+#     initial_data -- The initial data that will be contained in the created document.
+#     initial_data should be json-serializable. If omitted, an empty json
+#     object will be passed instead.
+#     """
+#
+#     # If no name is provided, generate a new UUID on the fly
+#     if not name:
+#         res = requests.get(f"{self.base_url}/_uuids")
+#         name = res.json()["uuids"][0]
+#
+#     # Empty bodied requests cannot create new CouchDB Documents.
+#     # Make sure no empty data are sent.
+#     if not initial_data:
+#         initial_data = {}
+#
+#     res = requests.put(f"{self.base_url}/{self.db}/{name}",
+#                        auth=(self.username, self.password),
+#                        data=json.dumps(initial_data))
+#
+#     if not res.ok:
+#         name = ""
+#
+#     return name
+#
+# ! DEPRECATED !
+# def append_energy_data(self, energy_data: EnergyData, *, document=None) -> bool:
+#     """Accepts a measurement object and appends it to the energy_data list
+#     of specified document.
+#     """
+#
+#     old_data = self._fetch_document(document=document)
+#
+#     if "energy_data" not in old_data:
+#         old_data["energy_data"] = []
+#
+#     old_data["energy_data"].append(energy_data)
+#     new_data = old_data
+#
+#     return self._update_document(new_data, document=document)
+

@@ -1,5 +1,6 @@
 """Database-related communication module"""
 
+import os
 import configparser
 import json
 from typing import Any
@@ -238,3 +239,46 @@ class CouchDBAdapter:
                 result = rows[0]["value"]
 
         return result
+
+
+class TempDB:
+    def __init__(self, config_file, cache_dir):
+        self.config_file = config_file
+        self.cache_dir = cache_dir
+
+    def fetch_data(self, date_id, *, from_cache=False):
+
+        if not os.path.exists(self.cache_dir):
+            os.mkdir(self.cache_dir)
+
+        cache_path = os.path.join(self.cache_dir, date_id)
+
+        fetch_ok = False
+
+        if from_cache:
+            try:
+                with open(cache_path, "r") as fin:
+                    data = json.load(fin)
+
+                print("Fetched data from cache")
+                fetch_ok = True
+            except OSError:
+                print("No cached data!")
+
+        if not from_cache or not fetch_ok:
+            dbio = CouchDBAdapter(self.config_file)
+
+            doc_id = dbio.get_document_id_for_date(date_id)
+            if not doc_id:
+                data = []
+                print("The requested document does not exist")
+            else:
+                doc = dbio._fetch_document(document=doc_id)
+                data = doc["energy_data"]
+                print("Fetched data from server")
+
+            # Cache data for future use
+            with open(cache_path, "w") as fout:
+                json.dump(data, fout)
+
+        return data

@@ -203,5 +203,5 @@ class CouchDBAdapter:
             contents = self._fetch_document(document=doc)
             contents["energy_data"] = data.energy_data
             return self._update_document(contents, document=doc)
-
-        return False
+        else:
+            return bool(self.create_document(initial_data=data))

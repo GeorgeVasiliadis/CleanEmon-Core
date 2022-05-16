@@ -1,6 +1,5 @@
 """Database-related communication module"""
 
-import os
 import configparser
 import json
 

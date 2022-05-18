@@ -35,7 +35,7 @@ def test_stress_date_change():
     """This test is intentionally skipped. It will run patiently waiting for the date to change. In order to utilize it
     please comment out the "skip" mark decorator, run this test and change manually the system date."""
 
-    event = DateChange(10, date.today())
+    event = DateChange(5, date.today())
 
     class DateChangeObserver(Observer):
         def on_notify(self, *args, **kwargs):

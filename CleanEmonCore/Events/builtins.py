@@ -38,10 +38,10 @@ class DateChange(Observable, Observer):
         Observer.__init__(self, self.timer)
 
     def on_notify(self, *args, **kwargs):
-        now = datetime.now()
-        if now.date() != self.current_date:
-            self.current_date = now
-            self.notify(date=now)
+        today = date.today()
+        if today != self.current_date:
+            self.current_date = today
+            self.notify(date=today)
 
     def run(self):
         self.timer.run()

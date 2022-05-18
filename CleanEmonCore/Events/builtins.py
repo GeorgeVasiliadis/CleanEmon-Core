@@ -1,7 +1,6 @@
 """A set of predefined observable events"""
 
 import time
-from datetime import datetime
 from datetime import date
 
 from . import Observer

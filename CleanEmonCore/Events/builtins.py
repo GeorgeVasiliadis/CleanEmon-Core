@@ -21,8 +21,16 @@ class Timer(Observable):
     def run(self):
         """Repeatedly, busy-waits for the desired amount of time and then notifies the observers"""
 
+        last_call = time.time()
         while True:
-            time.sleep(self.interval)
+
+            # busy_time denotes the amount of time spent on the last notify()
+            # If that time is greater than the defined interval, there is no need to wait any longer: notify immediately
+            # Otherwise, wait for as long as needed until the defined interval has actually passed
+            busy_time = time.time() - last_call
+            if busy_time < self.interval:
+                time.sleep(self.interval - busy_time)
+            last_call = time.time()
             self.notify(time=time.time())
 
 

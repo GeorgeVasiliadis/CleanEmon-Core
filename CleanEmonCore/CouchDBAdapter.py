@@ -2,6 +2,7 @@
 
 import configparser
 import json
+from typing import Dict
 
 import requests
 
@@ -205,3 +206,30 @@ class CouchDBAdapter:
             return self._update_document(contents, document=doc)
         else:
             return bool(self.create_document(initial_data=data))
+
+    def create_raw_document(self, name: str, *, initial_data: Dict = None) -> str:
+        """Creates a new document with arbitrary data named `name`, initialized with `initial_data`.
+        Returns the name of the document if creation was successful, and an empty
+        string otherwise.
+
+        name -- The name of the document to be created.
+        will be auto-generated and assigned.
+        initial_data -- The initial data that will be contained in the created document, which MUST be json-serializable
+        """
+
+        # If no name is provided, generate a new UUID on the fly
+        if name:
+
+            # Empty bodied requests cannot create new CouchDB Documents.
+            # Make sure no empty data are sent.
+            if not initial_data:
+                initial_data = {}
+
+            res = requests.put(f"{self.base_url}/{self.db}/{name}",
+                               auth=(self.username, self.password),
+                               data=json.dumps(initial_data))
+
+            if not res.ok:
+                name = ""
+
+        return name

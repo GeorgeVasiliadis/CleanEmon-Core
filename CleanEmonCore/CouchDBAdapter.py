@@ -151,16 +151,18 @@ class CouchDBAdapter:
 
         return energy_data
 
-    def append_energy_data(self, energy_data: EnergyData, *, document=None) -> bool:
-        """Accepts an EnergyData object and appends its contents to the specified document.
+    def append_energy_data(self, *energy_data_list: EnergyData, document=None) -> bool:
+        """Accepts one or more EnergyData objects and appends their contents to the specified document.
         """
 
-        new_data = energy_data.energy_data
+        old_energy_data = self.fetch_energy_data(document=document)
 
-        copy = self.fetch_energy_data(document=document)
-        copy.energy_data.extend(new_data)
+        for energy_data in energy_data_list:
+            new_data = energy_data.energy_data
 
-        return self._update_document(copy.as_json(string=False), document=document)
+            old_energy_data.energy_data.extend(new_data)
+
+        return self._update_document(old_energy_data.as_json(string=False), document=document)
 
     def get_document_id_for_date(self, date: str) -> str:
         """Returns the id of the document that matches the given date. If there

@@ -2,7 +2,7 @@ import os
 
 from .dotfiles import get_dotfile
 
-_CONFIG_FILENAME = "db.cfg"
+_CONFIG_FILENAME = "clean.cfg"
 
 PACKAGE_DIR = os.path.dirname(__file__)
 

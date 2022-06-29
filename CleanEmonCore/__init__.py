@@ -1,8 +1,7 @@
 import os
 
 from .dotfiles import get_dotfile
-
-_CONFIG_FILENAME = "clean.cfg"
+from .dotfiles import _CONFIG_FILENAME
 
 PACKAGE_DIR = os.path.dirname(__file__)
 

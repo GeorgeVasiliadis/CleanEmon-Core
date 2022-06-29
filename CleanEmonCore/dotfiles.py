@@ -1,5 +1,7 @@
 import os
 
+_CONFIG_FILENAME = "clean.cfg"
+
 _DOT_DIR_NAME = ".CleanEmon"
 DOT_DIR_PATH = os.path.expanduser(os.path.join("~", _DOT_DIR_NAME))  # Put dot-dir in user's home dir.
 

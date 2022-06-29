@@ -1,4 +1,6 @@
 import os
+import configparser
+
 
 _CONFIG_FILENAME = "clean.cfg"
 
@@ -30,6 +32,21 @@ def get_dotfile(name, fn=None):
             print(f"Requested dot-file {requested_path} was not found!")
 
     return requested_path
+
+
+def read_config() -> configparser.ConfigParser:
+    config_file = get_dotfile(_CONFIG_FILENAME)
+
+    cfg = configparser.ConfigParser(interpolation=None)
+    cfg.read(config_file)
+
+    return cfg
+
+
+def write_config(cfg: configparser.ConfigParser):
+    config_file = get_dotfile(_CONFIG_FILENAME)
+    with open(config_file, "w", encoding="utf8") as f_out:
+        cfg.write(f_out)
 
 
 init_dot_dir()

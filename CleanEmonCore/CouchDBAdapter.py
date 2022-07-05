@@ -20,7 +20,7 @@ class CouchDBAdapter:
 
         self.endpoint = cfg["DB"]["endpoint"]
         self.db = cfg["DB"]["db_name"]
-        self.document = cfg["DB"]["document_name"]
+        self.document = cfg["DB"]["document_name"]  # Todo: deprecate
         self.username = cfg["DB"]["username"]
         self.password = cfg["DB"]["password"]
         self.base_url = f"{self.endpoint}"

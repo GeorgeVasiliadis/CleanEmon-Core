@@ -147,6 +147,20 @@ class CouchDBAdapter:
 
         return name
 
+    def delete_database(self, name: str) -> bool:
+        """Deletes the database named `name`
+        Returns the name of the database if deletion was successful, and an empty string otherwise.
+
+        name -- The name of the existing database to be deleted. If an empty string is given, no database
+        will be deleted.
+        """
+        if name:
+            res = requests.delete(f"{self.base_url}/{name}",
+                                  auth=(self.username, self.password))
+            return res.ok
+
+        return False
+
     def fetch_energy_data(self, *, document: str = None) -> EnergyData:
         """Fetches the default document.
         Returns its content as a valid EnergyData object. If operation is unsuccessful, an empty EnergyData object will

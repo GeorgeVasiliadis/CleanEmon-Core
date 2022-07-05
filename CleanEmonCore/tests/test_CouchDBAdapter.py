@@ -59,6 +59,9 @@ class TestCreateDelete:
         assert adapter.create_document(TEST_DB_NAME, initial_data=energy_data)
         assert adapter.delete_document(TEST_DB_NAME)
 
+    def test_create_database(self, adapter):
+        assert adapter.create_database("a_test___")
+
 
 class TestFetchUpdate:
     def test_fetch_document(self, adapter, document):

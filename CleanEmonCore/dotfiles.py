@@ -49,4 +49,16 @@ def write_config(cfg: configparser.ConfigParser):
         cfg.write(f_out)
 
 
+def store_external_configfile(path: str):
+    if os.path.exists(path):
+        cfg = configparser.ConfigParser(interpolation=None)
+        cfg.read(path)
+
+        write_config(cfg)
+        print("File was stored successfully!")
+    else:
+        print(f"Path not found: {path}")
+        print("Aborting...")
+
+
 init_dot_dir()

@@ -269,3 +269,9 @@ class CouchDBAdapter:
                 name = ""
 
         return name
+
+    def fetch_meta(self):
+        meta = self._fetch_document(document="meta")
+        meta.pop("_id", None)
+        meta.pop("_rev", None)
+        return meta

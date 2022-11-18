@@ -10,7 +10,7 @@ from .models import EnergyData
 
 
 class CouchDBAdapter:
-    """ChouchDB Adapter class used to exchange data using REST API."""
+    """CouchDB Adapter class used to exchange data using REST API."""
 
     def __init__(self, config_file: str):
 
@@ -19,13 +19,15 @@ class CouchDBAdapter:
         cfg.read(config_file)
 
         self.endpoint = cfg["DB"]["endpoint"]
-        self.db = cfg["DB"]["db_name"]
-        self.document = cfg["DB"]["document_name"]  # Todo: deprecate
+        self.default_document = 'no_document'  # This is a constant because the document name inside the config is
+        # deprecated now
+        # self.db = cfg["DB"]["db_name"]
+        # self.document = cfg["DB"]["document_name"]  # Todo: deprecate
         self.username = cfg["DB"]["username"]
         self.password = cfg["DB"]["password"]
         self.base_url = f"{self.endpoint}"
 
-    def _fetch_document(self, *, document: str = None) -> dict:
+    def _fetch_document(self, *, document: str = None, db: str) -> dict:
         """Fetches the default document.
         Returns its content in json-format. If operation is unsuccessful, an
         empty dict is being returned.
@@ -39,11 +41,11 @@ class CouchDBAdapter:
         """
 
         if not document:
-            document = self.document
+            document = self.default_document
 
         assert document, "No document was supplied!"
 
-        res = requests.get(f"{self.base_url}/{self.db}/{document}",
+        res = requests.get(f"{self.base_url}/{db}/{document}",
                            auth=(self.username, self.password))
 
         data = {}
@@ -53,7 +55,7 @@ class CouchDBAdapter:
 
         return data
 
-    def _update_document(self, data: dict, *, document=None) -> bool:
+    def _update_document(self, data: dict, *, document=None, db: str) -> bool:
         """Updates the default document with the given data. This is equivalent
         to overwriting the stored data. Use with caution!
         Returns True if the document was updated successfully.
@@ -63,13 +65,13 @@ class CouchDBAdapter:
         document -- The document to be updated. It is usually omitted as the
                     default document is being implied, but an arbitrary document
                     can be specified as well.
-
+        db -- The database
         Throws:
         AssertionError -- If no document can be found.
         """
 
         if not document:
-            document = self.document
+            document = self.default_document
 
         assert document, "No document was supplied!"
 
@@ -80,7 +82,7 @@ class CouchDBAdapter:
 
         contents.update(data)
 
-        res = requests.put(f"{self.base_url}/{self.db}/{document}",
+        res = requests.put(f"{self.base_url}/{db}/{document}",
                            data=json.dumps(contents),
                            auth=(self.username, self.password))
 

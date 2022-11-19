@@ -275,3 +275,9 @@ class CouchDBAdapter:
         meta.pop("_id", None)
         meta.pop("_rev", None)
         return meta
+
+    def set_db(self, db):
+        """
+        This setter function sets the self.db field.
+        """
+        self.db = db

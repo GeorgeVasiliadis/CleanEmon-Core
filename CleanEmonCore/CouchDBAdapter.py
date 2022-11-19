@@ -19,10 +19,8 @@ class CouchDBAdapter:
         cfg.read(config_file)
 
         self.endpoint = cfg["DB"]["endpoint"]
-        self.default_document = 'no_document'  # This is a constant because the document name inside the config is
-        # deprecated now
-        # self.db = cfg["DB"]["db_name"]
-        # self.document = cfg["DB"]["document_name"]  # Todo: deprecate
+        self.db = cfg["DB"]["db_name"]
+        self.default_document = 'no_document'
         self.username = cfg["DB"]["username"]
         self.password = cfg["DB"]["password"]
         self.base_url = f"{self.endpoint}"

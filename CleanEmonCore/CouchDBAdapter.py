@@ -45,6 +45,7 @@ class CouchDBAdapter:
             db = self.db
 
         assert document, "No document was supplied!"
+        assert db, "No database name was supplied!"
 
         res = requests.get(f"{self.base_url}/{db}/{document}",
                            auth=(self.username, self.password))
@@ -78,6 +79,7 @@ class CouchDBAdapter:
             db = self.db
 
         assert document, "No document was supplied!"
+        assert db, "No database name was supplied!"
 
         contents = self._fetch_document(document=document)
 
@@ -173,7 +175,7 @@ class CouchDBAdapter:
 
         return False
 
-    def fetch_energy_data(self, *, document: str = None) -> EnergyData:
+    def fetch_energy_data(self, *, document: str = None, db: str = None) -> EnergyData:
         """Fetches the default document.
         Returns its content as a valid EnergyData object. If operation is unsuccessful, an empty EnergyData object will
          be returned.
@@ -181,13 +183,13 @@ class CouchDBAdapter:
         document -- The document to be fetched. It is usually omitted as the
                     default document is being implied, but an arbitrary document
                     can be specified as well.
-
+        db -- The database name/ the id of the device.
         Throws:
         AssertionError -- If no document can be found.
         """
 
         energy_data = EnergyData()
-        data = self._fetch_document(document=document)
+        data = self._fetch_document(document=document, db=db)
 
         if data:
             if "date" in data:
@@ -237,11 +239,11 @@ class CouchDBAdapter:
 
         return document_id
 
-    def fetch_energy_data_by_date(self, date: str) -> EnergyData:
+    def fetch_energy_data_by_date(self, date: str, db: str = None) -> EnergyData:
         energy_data = EnergyData()
         doc = self.get_document_id_for_date(date)
         if doc:
-            energy_data = self.fetch_energy_data(document=doc)
+            energy_data = self.fetch_energy_data(document=doc, db=db)
         return energy_data
 
     def update_energy_data_by_date(self, date: str, data: EnergyData) -> bool:

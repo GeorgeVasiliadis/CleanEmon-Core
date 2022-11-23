@@ -25,7 +25,7 @@ class CouchDBAdapter:
         self.password = cfg["DB"]["password"]
         self.base_url = f"{self.endpoint}"
 
-    def _fetch_document(self, *, document: str = None) -> dict:
+    def _fetch_document(self, *, document: str = None, db: str = None) -> dict:
         """Fetches the default document.
         Returns its content in json-format. If operation is unsuccessful, an
         empty dict is being returned.
@@ -41,9 +41,12 @@ class CouchDBAdapter:
         if not document:
             document = self.default_document
 
+        if not db:
+            db = self.db
+
         assert document, "No document was supplied!"
 
-        res = requests.get(f"{self.base_url}/{self.db}/{document}",
+        res = requests.get(f"{self.base_url}/{db}/{document}",
                            auth=(self.username, self.password))
 
         data = {}
@@ -53,7 +56,7 @@ class CouchDBAdapter:
 
         return data
 
-    def _update_document(self, data: dict, *, document=None) -> bool:
+    def _update_document(self, data: dict, *, document=None, db: str = None) -> bool:
         """Updates the default document with the given data. This is equivalent
         to overwriting the stored data. Use with caution!
         Returns True if the document was updated successfully.
@@ -71,6 +74,9 @@ class CouchDBAdapter:
         if not document:
             document = self.default_document
 
+        if not db:
+            db = self.db
+
         assert document, "No document was supplied!"
 
         contents = self._fetch_document(document=document)
@@ -80,13 +86,13 @@ class CouchDBAdapter:
 
         contents.update(data)
 
-        res = requests.put(f"{self.base_url}/{self.db}/{document}",
+        res = requests.put(f"{self.base_url}/{db}/{document}",
                            data=json.dumps(contents),
                            auth=(self.username, self.password))
 
         return res.ok
 
-    def create_document(self, name: str = None, *, initial_data: EnergyData = None) -> str:
+    def create_document(self, name: str = None, *, initial_data: EnergyData = None, db: str = None) -> str:
         """Creates a new document named `name`, initialized with `initial_data`.
         Returns the name of the document if creation was successful, and an empty
         string otherwise.
@@ -95,6 +101,7 @@ class CouchDBAdapter:
         will be auto-generated and assigned.
         initial_data -- The initial data that will be contained in the created document. initial_data should be
         of-type EnergyData. If omitted, an empty EnergyData object will be used.
+        db -- Specified database name. If omitted, the default database name in the config.cfg file will be used.
         """
 
         # If no name is provided, generate a new UUID on the fly
@@ -102,12 +109,15 @@ class CouchDBAdapter:
             res = requests.get(f"{self.base_url}/_uuids")
             name = res.json()["uuids"][0]
 
+        if not db:
+            db = self.db
+
         # Empty bodied requests cannot create new CouchDB Documents.
         # Make sure no empty data are sent.
         if not initial_data:
             initial_data = EnergyData()
 
-        res = requests.put(f"{self.base_url}/{self.db}/{name}",
+        res = requests.put(f"{self.base_url}/{db}/{name}",
                            auth=(self.username, self.password),
                            data=initial_data.as_json(string=True))
 
@@ -116,11 +126,13 @@ class CouchDBAdapter:
 
         return name
 
-    def delete_document(self, name: str) -> bool:
+    def delete_document(self, name: str, db: str = None) -> bool:
         data = self._fetch_document(document=name)
         if "_rev" in data:
             rev = data["_rev"]
-            res = requests.delete(f"{self.base_url}/{self.db}/{name}",
+            if not db:
+                db = self.db
+            res = requests.delete(f"{self.base_url}/{db}/{name}",
                                   auth=(self.username, self.password),
                                   params={"rev": rev})
             return res.ok
@@ -198,14 +210,15 @@ class CouchDBAdapter:
 
         return self._update_document(old_energy_data.as_json(string=False), document=document)
 
-    def get_document_id_for_date(self, date: str) -> str:
+    def get_document_id_for_date(self, date: str, db: str = None) -> str:
         """Returns the id of the document that matches the given date. If there
         is no such information available on the database, there are no
         appropriate views defined, or there is just no such matching date, an
         empty string will be returned.
         """
-
-        res = requests.get(f"{self.base_url}/{self.db}/_design/api/_view/get_dates",
+        if not db:
+            db = self.db
+        res = requests.get(f"{self.base_url}/{db}/_design/api/_view/get_dates",
                            auth=(self.username, self.password))
 
         data = {}
@@ -243,7 +256,7 @@ class CouchDBAdapter:
         else:
             return bool(self.create_document(initial_data=data))
 
-    def create_raw_document(self, name: str, *, initial_data: Dict = None) -> str:
+    def create_raw_document(self, name: str, *, initial_data: Dict = None, db: str = None) -> str:
         """Creates a new document with arbitrary data named `name`, initialized with `initial_data`.
         Returns the name of the document if creation was successful, and an empty
         string otherwise.
@@ -260,8 +273,9 @@ class CouchDBAdapter:
             # Make sure no empty data are sent.
             if not initial_data:
                 initial_data = {}
-
-            res = requests.put(f"{self.base_url}/{self.db}/{name}",
+            if not db:
+                db = self.db
+            res = requests.put(f"{self.base_url}/{db}/{name}",
                                auth=(self.username, self.password),
                                data=json.dumps(initial_data))
 

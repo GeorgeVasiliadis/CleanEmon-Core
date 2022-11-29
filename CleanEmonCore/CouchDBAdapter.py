@@ -286,8 +286,8 @@ class CouchDBAdapter:
 
         return name
 
-    def fetch_meta(self):
-        meta = self._fetch_document(document="meta")
+    def fetch_meta(self, db:str = None):
+        meta = self._fetch_document(document="meta", db=db)
         meta.pop("_id", None)
         meta.pop("_rev", None)
         return meta

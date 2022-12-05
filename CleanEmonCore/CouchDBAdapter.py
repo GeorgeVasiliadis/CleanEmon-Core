@@ -246,17 +246,17 @@ class CouchDBAdapter:
             energy_data = self.fetch_energy_data(document=doc, db=db)
         return energy_data
 
-    def update_energy_data_by_date(self, date: str, data: EnergyData) -> bool:
+    def update_energy_data_by_date(self, date: str, data: EnergyData, db: str = None) -> bool:
         if not data:
             data = EnergyData()
 
-        doc = self.get_document_id_for_date(date)
+        doc = self.get_document_id_for_date(date, db=db)
         if doc:
-            contents = self._fetch_document(document=doc)
+            contents = self._fetch_document(document=doc, db=db)
             contents["energy_data"] = data.energy_data
-            return self._update_document(contents, document=doc)
+            return self._update_document(contents, document=doc, db=db)
         else:
-            return bool(self.create_document(initial_data=data))
+            return bool(self.create_document(initial_data=data, db=db))
 
     def create_raw_document(self, name: str, *, initial_data: Dict = None, db: str = None) -> str:
         """Creates a new document with arbitrary data named `name`, initialized with `initial_data`.

@@ -3,7 +3,7 @@ import configparser
 
 
 _CONFIG_FILENAME = "clean.cfg"
-
+_DEVICES_FILENAME = "devices.json"
 _DOT_DIR_NAME = ".CleanEmon"
 DOT_DIR_PATH = os.path.expanduser(os.path.join("~", _DOT_DIR_NAME))  # Put dot-dir in user's home dir.
 
@@ -59,6 +59,7 @@ def store_external_configfile(path: str):
     else:
         print(f"Path not found: {path}")
         print("Aborting...")
+
 
 
 init_dot_dir()

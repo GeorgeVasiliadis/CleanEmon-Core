@@ -1,3 +1,4 @@
+"""JSON utilities  module"""
 import json
 
 from jsonschema import validate

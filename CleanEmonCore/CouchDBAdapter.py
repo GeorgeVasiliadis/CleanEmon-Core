@@ -241,7 +241,7 @@ class CouchDBAdapter:
 
     def fetch_energy_data_by_date(self, date: str, db: str = None) -> EnergyData:
         energy_data = EnergyData()
-        doc = self.get_document_id_for_date(date)
+        doc = self.get_document_id_for_date(date, db=db)
         if doc:
             energy_data = self.fetch_energy_data(document=doc, db=db)
         return energy_data

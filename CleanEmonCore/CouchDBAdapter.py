@@ -291,3 +291,13 @@ class CouchDBAdapter:
         meta.pop("_id", None)
         meta.pop("_rev", None)
         return meta
+
+    def update_meta(self, field: str, value: str, db: str = None):
+        meta = self._fetch_document(document="meta", db=db)
+        meta[field] = value
+
+        res = requests.put(f"{self.base_url}/{db}/{'meta'}",
+                           data=json.dumps(meta),
+                           auth=(self.username, self.password))
+
+        return res.ok

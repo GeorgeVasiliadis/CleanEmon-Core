@@ -19,7 +19,7 @@ class CouchDBAdapter:
         cfg.read(config_file)
 
         self.endpoint = cfg["DB"]["endpoint"]
-        self.db = self.get_emon_pi_serial()
+        self.db = "emon_"+self.get_emon_pi_serial()
         self.username = cfg["DB"]["username"]
         self.password = cfg["DB"]["password"]
         self.base_url = f"{self.endpoint}"
@@ -33,7 +33,7 @@ class CouchDBAdapter:
         serial = "no-serial"
         if exists("/sys/firmware/devicetree/base/serial-number"):
             with open("/sys/firmware/devicetree/base/serial-number", 'r') as f:
-                serial = f.read().rstrip('\x00').lstrip('0').upper()
+                serial = f.read().rstrip('\x00').lstrip('0').lower()
         return serial
 
     def _fetch_document(self, *, document: str, db: str = None) -> dict:

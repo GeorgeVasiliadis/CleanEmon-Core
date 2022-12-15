@@ -19,13 +19,24 @@ class CouchDBAdapter:
         cfg.read(config_file)
 
         self.endpoint = cfg["DB"]["endpoint"]
-        self.db = cfg["DB"]["db_name"]
-        self.default_document = 'no_document'
+        self.db = self.get_emon_pi_serial()
         self.username = cfg["DB"]["username"]
         self.password = cfg["DB"]["password"]
         self.base_url = f"{self.endpoint}"
 
-    def _fetch_document(self, *, document: str = None, db: str = None) -> dict:
+    @staticmethod
+    def get_emon_pi_serial() -> str:
+        """
+        :return: the device ID of the EmonPi.
+        """
+        from os.path import exists
+        serial = "no-serial"
+        if exists("/sys/firmware/devicetree/base/serial-number"):
+            with open("/sys/firmware/devicetree/base/serial-number", 'r') as f:
+                serial = f.read().rstrip('\x00').lstrip('0').upper()
+        return serial
+
+    def _fetch_document(self, *, document: str, db: str = None) -> dict:
         """Fetches the default document.
         Returns its content in json-format. If operation is unsuccessful, an
         empty dict is being returned.
@@ -37,9 +48,6 @@ class CouchDBAdapter:
         Throws:
         AssertionError -- If no document can be found.
         """
-
-        if not document:
-            document = self.default_document
 
         if not db:
             db = self.db
@@ -57,7 +65,7 @@ class CouchDBAdapter:
 
         return data
 
-    def _update_document(self, data: dict, *, document=None, db: str = None) -> bool:
+    def _update_document(self, data: dict, *, document, db: str = None) -> bool:
         """Updates the default document with the given data. This is equivalent
         to overwriting the stored data. Use with caution!
         Returns True if the document was updated successfully.
@@ -71,9 +79,6 @@ class CouchDBAdapter:
         Throws:
         AssertionError -- If no document can be found.
         """
-
-        if not document:
-            document = self.default_document
 
         if not db:
             db = self.db
@@ -175,7 +180,7 @@ class CouchDBAdapter:
 
         return False
 
-    def fetch_energy_data(self, *, document: str = None, db: str = None) -> EnergyData:
+    def fetch_energy_data(self, *, document: str, db: str = None) -> EnergyData:
         """Fetches the default document.
         Returns its content as a valid EnergyData object. If operation is unsuccessful, an empty EnergyData object will
          be returned.
@@ -199,7 +204,7 @@ class CouchDBAdapter:
 
         return energy_data
 
-    def append_energy_data(self, *energy_data_list: EnergyData, document=None) -> bool:
+    def append_energy_data(self, *energy_data_list: EnergyData, document) -> bool:
         """Accepts one or more EnergyData objects and appends their contents to the specified document.
         """
 

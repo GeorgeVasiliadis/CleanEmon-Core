@@ -7,6 +7,7 @@ from typing import Dict
 import requests
 
 from .models import EnergyData
+from . import json_utils
 
 
 class CouchDBAdapter:
@@ -19,7 +20,7 @@ class CouchDBAdapter:
         cfg.read(config_file)
 
         self.endpoint = cfg["DB"]["endpoint"]
-        self.db = "emon_"+self.get_emon_pi_serial()
+        self.db = "emon_" + self.get_emon_pi_serial()
         self.username = cfg["DB"]["username"]
         self.password = cfg["DB"]["password"]
         self.base_url = f"{self.endpoint}"
@@ -297,9 +298,11 @@ class CouchDBAdapter:
         meta.pop("_rev", None)
         return meta
 
-    def update_meta(self, field: str, value: str, db: str = None):
+    def update_meta(self, field: str, value: bool | int | float | str | None, db: str = None):
         meta = self._fetch_document(document="meta", db=db)
         meta[field] = value
+        from jsonschema import validate
+        validate(instance=meta, schema=json_utils.schemas.schema_meta)
 
         res = requests.put(f"{self.base_url}/{db}/{'meta'}",
                            data=json.dumps(meta),

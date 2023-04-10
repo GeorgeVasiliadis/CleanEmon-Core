@@ -129,7 +129,7 @@ schema_meta = {
         "microwave": {
             "type": "boolean"
         },
-        "space_heater": {
+        "electric_space_heater": {
             "type": "boolean"
         },
         "kettle": {

@@ -155,6 +155,36 @@ schema_meta = {
         },
         "light": {
             "type": "boolean"
+        },
+        "max_scale_microwave": {
+            "type": "integer"
+        },
+        "max_scale_electric_space_heater": {
+            "type": "integer"
+        },
+        "max_scale_kettle": {
+            "type": "integer"
+        },
+        "max_scale_fridge": {
+            "type": "integer"
+        },
+        "max_scale_washing_machine": {
+            "type": "integer"
+        },
+        "max_scale_dish_washer": {
+            "type": "integer"
+        },
+        "max_scale_tumble_dryer": {
+            "type": "integer"
+        },
+        "max_scale_computer": {
+            "type": "integer"
+        },
+        "max_scale_electric_oven": {
+            "type": "integer"
+        },
+        "max_scale_light": {
+            "type": "integer"
         }
     },
     "additionalProperties": False

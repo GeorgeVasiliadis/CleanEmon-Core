@@ -156,34 +156,34 @@ schema_meta = {
         "light": {
             "type": "boolean"
         },
-        "max_scale_microwave": {
+        "max_limit_microwave": {
             "type": "integer"
         },
-        "max_scale_electric_space_heater": {
+        "max_limit_electric_space_heater": {
             "type": "integer"
         },
-        "max_scale_kettle": {
+        "max_limit_kettle": {
             "type": "integer"
         },
-        "max_scale_fridge": {
+        "max_limit_fridge": {
             "type": "integer"
         },
-        "max_scale_washing_machine": {
+        "max_limit_washing_machine": {
             "type": "integer"
         },
-        "max_scale_dish_washer": {
+        "max_limit_dish_washer": {
             "type": "integer"
         },
-        "max_scale_tumble_dryer": {
+        "max_limit_tumble_dryer": {
             "type": "integer"
         },
-        "max_scale_computer": {
+        "max_limit_computer": {
             "type": "integer"
         },
-        "max_scale_electric_oven": {
+        "max_limit_electric_oven": {
             "type": "integer"
         },
-        "max_scale_light": {
+        "max_limit_light": {
             "type": "integer"
         }
     },

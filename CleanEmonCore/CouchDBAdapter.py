@@ -218,49 +218,35 @@ class CouchDBAdapter:
 
         return self._update_document(old_energy_data.as_json(string=False), document=document)
 
-    def get_document_id_for_date(self, date: str, db: str = None) -> str:
-        """Returns the id of the document that matches the given date. If there
-        is no such information available on the database, there are no
-        appropriate views defined, or there is just no such matching date, an
-        empty string will be returned.
+    def document_exists(self, name: str, db: str = None) -> bool:
+        """
+        Checks if a document with the name exists
+        :param name: The document name (ID of document)
+        :param db: The database to look
+        :return: True if document exist False if doesn't exist
         """
         if not db:
             db = self.db
-        res = requests.get(f"{self.base_url}/{db}/_design/api/_view/get_dates",
-                           auth=(self.username, self.password))
-
-        data = {}
-        if res.ok:
-            data = res.json()
-
-        rows = []
-        if "rows" in data:
-            rows = data["rows"]
-
-        document_id = ""
-        for row in rows:
-            if row["key"] == date:
-                document_id = row["value"]
-                break
-
-        return document_id
+        res = requests.head(f"{self.base_url}/{db}/{name}",
+                            auth=(self.username, self.password))  # using requests.head to only get the response header
+        if res.status_code == 200:  # The document exists
+            return True
+        else:
+            return False
 
     def fetch_energy_data_by_date(self, date: str, db: str = None) -> EnergyData:
-        energy_data = EnergyData()
-        doc = self.get_document_id_for_date(date, db=db)
-        if doc:
-            energy_data = self.fetch_energy_data(document=doc, db=db)
+        energy_data = self.fetch_energy_data(document=date, db=db)  # The document id is the date
         return energy_data
 
     def update_energy_data_by_date(self, date: str, data: EnergyData, db: str = None) -> bool:
         if not data:
             data = EnergyData()
 
-        doc = self.get_document_id_for_date(date, db=db)
-        if doc:
-            contents = self._fetch_document(document=doc, db=db)
+        doc_id = date
+        if doc_id:
+            contents = self._fetch_document(document=doc_id, db=db)
             contents["energy_data"] = data.energy_data
-            return self._update_document(contents, document=doc, db=db)
+            return self._update_document(contents, document=doc_id, db=db)
         else:
             return bool(self.create_document(initial_data=data, db=db))
 
@@ -291,6 +277,23 @@ class CouchDBAdapter:
                 name = ""
 
         return name
+
+    def view_daily_consumption(self, date: str, db: str):
+
+        params = {'key': f'"{date}"'}
+        res = requests.get(f"{self.base_url}/{db}/_design/api/_view/daily_consumption",
+                           auth=(self.username, self.password),
+                           params=params)
+        if res.ok:
+            data = res.json()
+            try:
+                return data['rows'][0]['value']
+            except KeyError:  # Something went wrong with the response e.g. data['rows'] don't exist
+                return 0
+            except IndexError:  # There is no data for this day
+                return 0
+
+        return -1
 
     def fetch_meta(self, db: str = None):
         meta = self._fetch_document(document="meta", db=db)

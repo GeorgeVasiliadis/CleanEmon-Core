@@ -312,3 +312,21 @@ class CouchDBAdapter:
                            auth=(self.username, self.password))
 
         return res.ok
+
+    def get_last_energy_data_record(self, db: str):
+        res = requests.get(f"{self.base_url}/{db}/_design/api/_view/last_energy_data_record?descending=true&limit=1",
+                           auth=(self.username, self.password))
+
+        energy_data = EnergyData()
+        if res.ok:
+            data = res.json()
+            try:
+                energy_data.date = data['rows'][0]['key']
+                energy_data.energy_data = data['rows'][0]['value']
+            except KeyError:  # Something went wrong with the response e.g. data['rows'] don't exist
+                return energy_data
+            except IndexError:  # There is no data for this day
+                return energy_data
+
+        return energy_data
+

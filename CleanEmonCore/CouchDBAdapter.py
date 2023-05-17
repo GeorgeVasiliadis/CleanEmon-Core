@@ -301,7 +301,7 @@ class CouchDBAdapter:
         meta.pop("_rev", None)
         return meta
 
-    def update_meta(self, field: str, value: Union[bool, int, float, str, None], db: str = None):
+    def update_meta(self, field: str, value: Union[int, float, bool, str, None], db: str = None):
         meta = self._fetch_document(document="meta", db=db)
         meta[field] = value
         from jsonschema import validate

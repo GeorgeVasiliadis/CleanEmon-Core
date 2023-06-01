@@ -181,21 +181,43 @@ class CouchDBAdapter:
 
         return False
 
-    def fetch_energy_data(self, *, document: str, db: str = None) -> EnergyData:
+    def _fetch_low_res_energy_data(self, date, db):
+        params = {'key': f'"{date}"'}
+        res = requests.get(f"{self.base_url}/{db}/_design/api/_view/lower_res",
+                           auth=(self.username, self.password),
+                           params=params)
+
+        if res.ok:
+            data = res.json()
+            try:
+                return data['rows'][0]['value']
+            except KeyError:  # Something went wrong with the response e.g. data['rows'] don't exist
+                return {}
+            except IndexError:  # There is no data for this day
+                return {}
+
+        return {}
+
+    def fetch_energy_data(self, *, document: str, db: str = None, down_sampling: bool = False) -> EnergyData:
         """Fetches the default document.
         Returns its content as a valid EnergyData object. If operation is unsuccessful, an empty EnergyData object will
          be returned.
 
-        document -- The document to be fetched. It is usually omitted as the
+
+        :param document: -- The document to be fetched. It is usually omitted as the
                     default document is being implied, but an arbitrary document
                     can be specified as well.
-        db -- The database name/ the id of the device.
+        :param db -- The database name/ the id of the device.
+        :param down_sampling:  If true it enables down-sampling and returns a decimated time series
         Throws:
         AssertionError -- If no document can be found.
         """
 
         energy_data = EnergyData()
-        data = self._fetch_document(document=document, db=db)
+        if down_sampling:
+            data = self._fetch_low_res_energy_data(date=document, db=db)
+        else:
+            data = self._fetch_document(document=document, db=db)
 
         if data:
             if "date" in data:
@@ -234,8 +256,9 @@ class CouchDBAdapter:
         else:
             return False
 
-    def fetch_energy_data_by_date(self, date: str, db: str = None) -> EnergyData:
-        energy_data = self.fetch_energy_data(document=date, db=db)  # The document id is the date
+    def fetch_energy_data_by_date(self, date: str, db: str = None, down_sampling: bool = False) -> EnergyData:
+        energy_data = self.fetch_energy_data(document=date, db=db, down_sampling=down_sampling)
+        # The document id is the date
         return energy_data
 
     def update_energy_data_by_date(self, date: str, data: EnergyData, db: str = None) -> bool:
@@ -330,3 +353,32 @@ class CouchDBAdapter:
 
         return energy_data
 
+    def _get_view(self, db: str, view: str, day_start: str, day_end: str, summation: bool):
+        params = {'startkey': f'"{day_start}"',
+                  'endkey': f'"{day_end}"',
+                  'reduce': summation
+                  }
+
+        res = requests.get(f"{self.base_url}/{db}/_design/api/_view/{view}",
+                           auth=(self.username, self.password),
+                           params=params)
+
+        if res.ok:
+            data = res.json()
+            try:
+                if summation:
+                    return data['rows'][0]['value']
+                else:
+                    return data['rows']
+            except KeyError:
+                return {}
+            except IndexError:
+                return {}
+
+        return {}
+
+    def get_pred_consumption(self, db: str, day_start: str, day_end: str, summation: bool):
+        return self._get_view(db, 'pred_consumption', day_start, day_end, summation)
+
+    def view_daily_consumptions_range(self, day_start: str, day_end: str, db: str, summation: bool):
+        return self._get_view(db, 'daily_consumption', day_start, day_end, summation)

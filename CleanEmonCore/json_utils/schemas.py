@@ -72,9 +72,6 @@ schema_meta = {
             "type": "integer",
             "minimum": 0
         },
-        "Water Heater": {
-            "type": "boolean"
-        },
         "Occupants": {
             "type": "integer",
             "minimum": 0

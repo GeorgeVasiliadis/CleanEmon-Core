@@ -382,3 +382,13 @@ class CouchDBAdapter:
 
     def view_daily_consumptions_range(self, day_start: str, day_end: str, db: str, summation: bool):
         return self._get_view(db, 'daily_consumption', day_start, day_end, summation)
+
+    def get_devices(self):
+        prefix = "emon"  # Replace with the desired prefix
+        res = requests.get(f"{self.base_url}/_all_dbs",
+                           auth=(self.username, self.password)
+                           )
+        if res.ok:
+            databases = res.json()
+            return [db for db in databases if db.startswith(prefix)]
+        return []

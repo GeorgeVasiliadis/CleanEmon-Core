@@ -1,23 +1,3 @@
-"""JSON Schemas"""
-schema_devices = {
-    "$schema": "http://json-schema.org/draft-04/schema#",
-    "type": "object",
-    "properties": {
-        "devices": {
-            "type": "array",
-            "minItems": 1,
-            "uniqueItems": True,
-            "items": {
-                "type": "string",
-                "minLength": 1
-            }
-        }
-    },
-    "required": [
-        "devices"
-    ]
-}
-
 schema_meta = {
     "$schema": "https://json-schema.org/draft/2019-09/schema",
     "definitions": {

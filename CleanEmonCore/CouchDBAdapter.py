@@ -2,15 +2,16 @@
 
 import configparser
 import json
-from typing import Dict
+from typing import Dict, Union
 
 import requests
 
 from .models import EnergyData
+from . import json_utils
 
 
 class CouchDBAdapter:
-    """ChouchDB Adapter class used to exchange data using REST API."""
+    """CouchDB Adapter class used to exchange data using REST API."""
 
     def __init__(self, config_file: str):
 
@@ -19,13 +20,24 @@ class CouchDBAdapter:
         cfg.read(config_file)
 
         self.endpoint = cfg["DB"]["endpoint"]
-        self.db = cfg["DB"]["db_name"]
-        self.document = cfg["DB"]["document_name"]  # Todo: deprecate
+        self.db = "emon_" + self.get_emon_pi_serial()
         self.username = cfg["DB"]["username"]
         self.password = cfg["DB"]["password"]
         self.base_url = f"{self.endpoint}"
 
-    def _fetch_document(self, *, document: str = None) -> dict:
+    @staticmethod
+    def get_emon_pi_serial() -> str:
+        """
+        :return: the device ID of the EmonPi.
+        """
+        from os.path import exists
+        serial = "no-serial"
+        if exists("/sys/firmware/devicetree/base/serial-number"):
+            with open("/sys/firmware/devicetree/base/serial-number", 'r') as f:
+                serial = f.read().rstrip('\x00').lstrip('0').lower()
+        return serial
+
+    def _fetch_document(self, *, document: str, db: str = None) -> dict:
         """Fetches the default document.
         Returns its content in json-format. If operation is unsuccessful, an
         empty dict is being returned.
@@ -38,12 +50,13 @@ class CouchDBAdapter:
         AssertionError -- If no document can be found.
         """
 
-        if not document:
-            document = self.document
+        if not db:
+            db = self.db
 
         assert document, "No document was supplied!"
+        assert db, "No database name was supplied!"
 
-        res = requests.get(f"{self.base_url}/{self.db}/{document}",
+        res = requests.get(f"{self.base_url}/{db}/{document}",
                            auth=(self.username, self.password))
 
         data = {}
@@ -53,7 +66,7 @@ class CouchDBAdapter:
 
         return data
 
-    def _update_document(self, data: dict, *, document=None) -> bool:
+    def _update_document(self, data: dict, *, document, db: str = None) -> bool:
         """Updates the default document with the given data. This is equivalent
         to overwriting the stored data. Use with caution!
         Returns True if the document was updated successfully.
@@ -68,10 +81,11 @@ class CouchDBAdapter:
         AssertionError -- If no document can be found.
         """
 
-        if not document:
-            document = self.document
+        if not db:
+            db = self.db
 
         assert document, "No document was supplied!"
+        assert db, "No database name was supplied!"
 
         contents = self._fetch_document(document=document)
 
@@ -80,13 +94,13 @@ class CouchDBAdapter:
 
         contents.update(data)
 
-        res = requests.put(f"{self.base_url}/{self.db}/{document}",
+        res = requests.put(f"{self.base_url}/{db}/{document}",
                            data=json.dumps(contents),
                            auth=(self.username, self.password))
 
         return res.ok
 
-    def create_document(self, name: str = None, *, initial_data: EnergyData = None) -> str:
+    def create_document(self, name: str = None, *, initial_data: EnergyData = None, db: str = None) -> str:
         """Creates a new document named `name`, initialized with `initial_data`.
         Returns the name of the document if creation was successful, and an empty
         string otherwise.
@@ -95,6 +109,7 @@ class CouchDBAdapter:
         will be auto-generated and assigned.
         initial_data -- The initial data that will be contained in the created document. initial_data should be
         of-type EnergyData. If omitted, an empty EnergyData object will be used.
+        db -- Specified database name. If omitted, the default database name in the config.cfg file will be used.
         """
 
         # If no name is provided, generate a new UUID on the fly
@@ -102,12 +117,15 @@ class CouchDBAdapter:
             res = requests.get(f"{self.base_url}/_uuids")
             name = res.json()["uuids"][0]
 
+        if not db:
+            db = self.db
+
         # Empty bodied requests cannot create new CouchDB Documents.
         # Make sure no empty data are sent.
         if not initial_data:
             initial_data = EnergyData()
 
-        res = requests.put(f"{self.base_url}/{self.db}/{name}",
+        res = requests.put(f"{self.base_url}/{db}/{name}",
                            auth=(self.username, self.password),
                            data=initial_data.as_json(string=True))
 
@@ -116,11 +134,13 @@ class CouchDBAdapter:
 
         return name
 
-    def delete_document(self, name: str) -> bool:
+    def delete_document(self, name: str, db: str = None) -> bool:
         data = self._fetch_document(document=name)
         if "_rev" in data:
             rev = data["_rev"]
-            res = requests.delete(f"{self.base_url}/{self.db}/{name}",
+            if not db:
+                db = self.db
+            res = requests.delete(f"{self.base_url}/{db}/{name}",
                                   auth=(self.username, self.password),
                                   params={"rev": rev})
             return res.ok
@@ -161,21 +181,43 @@ class CouchDBAdapter:
 
         return False
 
-    def fetch_energy_data(self, *, document: str = None) -> EnergyData:
+    def _fetch_low_res_energy_data(self, date, db):
+        params = {'key': f'"{date}"'}
+        res = requests.get(f"{self.base_url}/{db}/_design/api/_view/lower_res",
+                           auth=(self.username, self.password),
+                           params=params)
+
+        if res.ok:
+            data = res.json()
+            try:
+                return data['rows'][0]['value']
+            except KeyError:  # Something went wrong with the response e.g. data['rows'] don't exist
+                return {}
+            except IndexError:  # There is no data for this day
+                return {}
+
+        return {}
+
+    def fetch_energy_data(self, *, document: str, db: str = None, down_sampling: bool = False) -> EnergyData:
         """Fetches the default document.
         Returns its content as a valid EnergyData object. If operation is unsuccessful, an empty EnergyData object will
          be returned.
 
-        document -- The document to be fetched. It is usually omitted as the
+
+        :param document: -- The document to be fetched. It is usually omitted as the
                     default document is being implied, but an arbitrary document
                     can be specified as well.
-
+        :param db -- The database name/ the id of the device.
+        :param down_sampling:  If true it enables down-sampling and returns a decimated time series
         Throws:
         AssertionError -- If no document can be found.
         """
 
         energy_data = EnergyData()
-        data = self._fetch_document(document=document)
+        if down_sampling:
+            data = self._fetch_low_res_energy_data(date=document, db=db)
+        else:
+            data = self._fetch_document(document=document, db=db)
 
         if data:
             if "date" in data:
@@ -185,7 +227,7 @@ class CouchDBAdapter:
 
         return energy_data
 
-    def append_energy_data(self, *energy_data_list: EnergyData, document=None) -> bool:
+    def append_energy_data(self, *energy_data_list: EnergyData, document) -> bool:
         """Accepts one or more EnergyData objects and appends their contents to the specified document.
         """
 
@@ -198,52 +240,40 @@ class CouchDBAdapter:
 
         return self._update_document(old_energy_data.as_json(string=False), document=document)
 
-    def get_document_id_for_date(self, date: str) -> str:
-        """Returns the id of the document that matches the given date. If there
-        is no such information available on the database, there are no
-        appropriate views defined, or there is just no such matching date, an
-        empty string will be returned.
+    def document_exists(self, name: str, db: str = None) -> bool:
         """
+        Checks if a document with the name exists
+        :param name: The document name (ID of document)
+        :param db: The database to look
+        :return: True if document exist False if doesn't exist
+        """
+        if not db:
+            db = self.db
+        res = requests.head(f"{self.base_url}/{db}/{name}",
+                            auth=(self.username, self.password))  # using requests.head to only get the response header
+        if res.status_code == 200:  # The document exists
+            return True
+        else:
+            return False
 
-        res = requests.get(f"{self.base_url}/{self.db}/_design/api/_view/get_dates",
-                           auth=(self.username, self.password))
-
-        data = {}
-        if res.ok:
-            data = res.json()
-
-        rows = []
-        if "rows" in data:
-            rows = data["rows"]
-
-        document_id = ""
-        for row in rows:
-            if row["key"] == date:
-                document_id = row["value"]
-                break
-
-        return document_id
-
-    def fetch_energy_data_by_date(self, date: str) -> EnergyData:
-        energy_data = EnergyData()
-        doc = self.get_document_id_for_date(date)
-        if doc:
-            energy_data = self.fetch_energy_data(document=doc)
+    def fetch_energy_data_by_date(self, date: str, db: str = None, down_sampling: bool = False) -> EnergyData:
+        energy_data = self.fetch_energy_data(document=date, db=db, down_sampling=down_sampling)
+        # The document id is the date
         return energy_data
 
-    def update_energy_data_by_date(self, date: str, data: EnergyData) -> bool:
+    def update_energy_data_by_date(self, date: str, data: EnergyData, db: str = None) -> bool:
         if not data:
             data = EnergyData()
 
-        doc = self.get_document_id_for_date(date)
-        if doc:
-            contents = self._fetch_document(document=doc)
+        doc_id = date
+        if doc_id:
+            contents = self._fetch_document(document=doc_id, db=db)
             contents["energy_data"] = data.energy_data
-            return self._update_document(contents, document=doc)
+            return self._update_document(contents, document=doc_id, db=db)
         else:
-            return bool(self.create_document(initial_data=data))
+            return bool(self.create_document(initial_data=data, db=db))
 
-    def create_raw_document(self, name: str, *, initial_data: Dict = None) -> str:
+    def create_raw_document(self, name: str, *, initial_data: Dict = None, db: str = None) -> str:
         """Creates a new document with arbitrary data named `name`, initialized with `initial_data`.
         Returns the name of the document if creation was successful, and an empty
         string otherwise.
@@ -260,8 +290,9 @@ class CouchDBAdapter:
             # Make sure no empty data are sent.
             if not initial_data:
                 initial_data = {}
-
-            res = requests.put(f"{self.base_url}/{self.db}/{name}",
+            if not db:
+                db = self.db
+            res = requests.put(f"{self.base_url}/{db}/{name}",
                                auth=(self.username, self.password),
                                data=json.dumps(initial_data))
 
@@ -270,8 +301,94 @@ class CouchDBAdapter:
 
         return name
 
-    def fetch_meta(self):
-        meta = self._fetch_document(document="meta")
+    def view_daily_consumption(self, date: str, db: str):
+
+        params = {'key': f'"{date}"'}
+        res = requests.get(f"{self.base_url}/{db}/_design/api/_view/daily_consumption",
+                           auth=(self.username, self.password),
+                           params=params)
+        if res.ok:
+            data = res.json()
+            try:
+                return data['rows'][0]['value']
+            except KeyError:  # Something went wrong with the response e.g. data['rows'] don't exist
+                return 0
+            except IndexError:  # There is no data for this day
+                return 0
+
+        return -1
+
+    def fetch_meta(self, db: str = None):
+        meta = self._fetch_document(document="meta", db=db)
         meta.pop("_id", None)
         meta.pop("_rev", None)
         return meta
+
+    def update_meta(self, field: str, value: Union[int, float, bool, str, None], db: str = None):
+        meta = self._fetch_document(document="meta", db=db)
+        meta[field] = value
+        from jsonschema import validate
+        validate(instance=meta, schema=json_utils.schemas.schema_meta)
+
+        res = requests.put(f"{self.base_url}/{db}/{'meta'}",
+                           data=json.dumps(meta),
+                           auth=(self.username, self.password))
+
+        return res.ok
+
+    def get_last_energy_data_record(self, db: str):
+        res = requests.get(f"{self.base_url}/{db}/_design/api/_view/last_energy_data_record?descending=true&limit=1",
+                           auth=(self.username, self.password))
+
+        energy_data = EnergyData()
+        if res.ok:
+            data = res.json()
+            try:
+                energy_data.date = data['rows'][0]['key']
+                energy_data.energy_data = data['rows'][0]['value']
+            except KeyError:  # Something went wrong with the response e.g. data['rows'] don't exist
+                return energy_data
+            except IndexError:  # There is no data for this day
+                return energy_data
+
+        return energy_data
+
+    def _get_view(self, db: str, view: str, day_start: str, day_end: str, summation: bool):
+        params = {'startkey': f'"{day_start}"',
+                  'endkey': f'"{day_end}"',
+                  'reduce': summation
+                  }
+
+        res = requests.get(f"{self.base_url}/{db}/_design/api/_view/{view}",
+                           auth=(self.username, self.password),
+                           params=params)
+
+        if res.ok:
+            data = res.json()
+            try:
+                if summation:
+                    return data['rows'][0]['value']
+                else:
+                    return data['rows']
+            except KeyError:
+                return {}
+            except IndexError:
+                return {}
+
+        return {}
+
+    def get_pred_consumption(self, db: str, day_start: str, day_end: str, summation: bool):
+        return self._get_view(db, 'pred_consumption', day_start, day_end, summation)
+
+    def view_daily_consumptions_range(self, day_start: str, day_end: str, db: str, summation: bool):
+        return self._get_view(db, 'daily_consumption', day_start, day_end, summation)
+
+    def get_devices(self):
+        prefix = "emon"  # Replace with the desired prefix
+        res = requests.get(f"{self.base_url}/_all_dbs",
+                           auth=(self.username, self.password)
+                           )
+        if res.ok:
+            databases = res.json()
+            return [db for db in databases if db.startswith(prefix)]
+        return []

@@ -4,7 +4,7 @@ import json
 from dataclasses import dataclass
 from dataclasses import asdict
 from typing import List
-
+import orjson
 
 @dataclass
 class EnergyData:
@@ -15,6 +15,6 @@ class EnergyData:
         as_dict = asdict(self)
 
         if string:
-            return json.dumps(as_dict)
+            return orjson.dumps(as_dict)
         else:
             return as_dict
